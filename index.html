@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Core Prize Manager v5.9.5 - PRO6</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary-red: #e63946; --dark: #1d3557; --gold: #ffb703; --green: #2a9d8f; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .admin-panel { background: #1d3557; color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; border-bottom: 5px solid var(--gold); }
+        .staff-panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; display: none; }
+        .grid-inputs { display: grid; grid-template-columns: 2fr 1.2fr 0.8fr 0.8fr 0.8fr auto; gap: 12px; margin-bottom: 15px; align-items: end; }
+        .input-group { display: flex; flex-direction: column; }
+        label { font-size: 0.7rem; font-weight: bold; margin-bottom: 4px; color: #ccc; text-transform: uppercase; }
+        input, select { padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 0.9rem; }
+        .tourney-list { width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.05); margin-top: 10px; }
+        .tourney-list td { padding: 10px; text-align: left; border: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; color: white !important; }
+        button { padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; text-transform: uppercase; }
+        .btn-lock, .btn-close-event { background: #1a7a7a; color: white; width: 100%; margin-top: 15px; }
+        .btn-reset { background: var(--gold); color: #1d3557; width: 100%; margin-top: 15px; border-bottom: 3px solid #cc9200; }
+        .btn-update { background: var(--primary-red); color: white; }
+        .payout-page { background: white; width: 210mm; min-height: 297mm; padding: 15mm; margin: 20px auto; display: none; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .header-payout { text-align: center; border-bottom: 3px solid var(--dark); padding-bottom: 10px; }
+        .report-page { background: white; width: 210mm; padding: 15mm; margin: 20px auto; border-top: 8px solid var(--dark); display: none; }
+        .report-header { text-align: center; margin-bottom: 30px; }
+        .report-header img { height: 80px; margin-bottom: 10px; }
+        .report-header h1 { font-size: 2.2rem; margin: 5px 0; text-transform: uppercase; color: var(--dark); }
+        .report-header h2 { font-size: 1.2rem; color: #333; margin-bottom: 5px; }
+        .report-header h3 { font-size: 1.8rem; color: var(--primary-red); text-transform: uppercase; margin-top: 10px; border-top: 2px solid #eee; border-bottom: 2px solid #eee; padding: 10px 0; }
+        .report-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9rem; }
+        .report-table th { border-bottom: 2px solid #ddd; padding: 12px; color: #777; text-transform: uppercase; text-align: center; font-size: 0.8rem; background: none; }
+        .report-table td { padding: 12px 10px; border-bottom: 1px dotted #ccc; text-align: center; font-weight: bold; color: #333; }
+        .report-table th:first-child, .report-table td:first-child { text-align: left; padding-left: 10px; }
+        .row-total td { border-top: 3px solid var(--dark); border-bottom: none; background: #f9f9f9; font-size: 1.1rem; padding: 15px 10px; color: var(--dark); }
+
+        @media print { 
+            .no-print, #setupArea, #staffArea, #login-area, #modalSenha, button { display: none !important; } 
+            #reportArea:not([style*="display: block"]) { display: none !important; }
+            #printArea:not([style*="display: block"]) { display: none !important; }
+            body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            table { border: 1px solid #000 !important; width: 100% !important; border-collapse: collapse !important; }
+            th, td { border: 1px solid #ddd !important; text-align: center !important; padding: 8px !important; }
+            .row-total td { border-top: 3px solid #000 !important; background: #f9f9f9 !important; }
+        }
+
+        #modalSenha {
+            display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.8); align-items: center; justify-content: center;
+        }
+
+        .modal-content { background: white; padding: 30px; border-radius: 12px; text-align: center; width: 300px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+    </style>
+</head>
+<body>
+
+    <div id="login-area" class="no-print">
+        <div class="login-card" style="background:white; padding:40px; border-radius:15px; text-align:center; width:350px; margin: 80px auto; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+            <h2 style="color: var(--dark);">CORE PRIZE</h2>
+            <input type="password" id="event-id-input" name="event-access-secure-field" autocomplete="off" placeholder="ENTER ACCESS CODE" spellcheck="false" style="width:100%; margin: 20px 0; text-transform: uppercase; padding:12px; letter-spacing: 4px; text-align: center; border: 1px solid #ddd; border-radius: 8px;">
+            <button onclick="checkAccess()" style="background: var(--dark); color: white; width: 100%;">Access System</button>
+        </div>
+    </div>
+
+    <div id="setupArea" class="admin-panel no-print" style="display: none;">
+        <h3>🛡️ ADMIN SETUP <button onclick="location.reload()" style="font-size: 0.65rem; background: rgba(255,255,255,0.1); color: white; padding: 4px 10px; float: right;">EXIT</button></h3>
+        <div class="grid-inputs">
+            <div class="input-group">
+                <label>Event Name</label>
+                <input type="text" id="masterEvent" onchange="saveEventIdentity()" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="input-group">
+                <label>Logo</label>
+                <select id="masterLogo" onchange="saveEventIdentity()">
+                    <option value="REGIONAL">REGIONAL</option>
+                    <option value="IC">IC</option>
+                </select>
+            </div>
+            <div class="input-group"><label>Part. %</label><input type="number" id="masterTax" value="20"></div>
+            <div class="input-group"><label>Spread Factor</label><select id="masterFactor"><option value="2.0">2.0</option><option value="1.75">1.75</option><option value="1.5">1.5</option></select></div>
+        </div>
+        <h4>📅 Tournament Catalog</h4>
+        <div class="grid-inputs">
+            <input type="text" id="tName" placeholder="Name" autocomplete="off" spellcheck="false">
+            <input type="text" id="tHour" placeholder="9AM" autocomplete="off">
+            <select id="tDay"><option value="Day 1">Day 1</option><option value="Day 2">Day 2</option><option value="Day 3">Day 3</option></select>
+            <input type="number" id="tFee" placeholder="Fee">
+            <input type="number" id="tCost" placeholder="Cost">
+            <button onclick="addTournament()" style="background:var(--gold);">+ ADD</button>
+        </div>
+        <table class="tourney-list" id="catalogTable"><tbody></tbody></table>
+        <button class="btn-lock" onclick="lockSetup()">🔒 LOCK TO STAFF</button>
+        <button class="btn-close-event" onclick="showFinalReport()">📊 GENERATE FINAL REPORT</button>
+        <button class="btn-reset" id="btnEmailFuturo" onclick="alert('Email system coming soon!')" style="margin-top: 10px; background: var(--gold); color: #1d3557;">📧 EMAIL FINAL REPORT (Coming Soon)</button>
+        <button class="btn-reset" onclick="resetSystem()">⚠️ RESET SYSTEM</button>
+    </div>
+
+    <div id="staffArea" class="staff-panel no-print">
+        <h3>🕹️ STAFF OPERATION <button onclick="unlockSetup()" style="font-size:0.6rem; float: right;">Back</button></h3>
+        <select id="staffSelectTourney" onchange="updateStaffFee()" style="width:100%; margin-bottom:10px; padding:10px;"></select>
+        <div style="display:flex; gap:10px;">
+            <div class="input-group" style="flex:1"><label>Players</label><input type="number" id="staffPlayers" value="0"></div>
+            <div class="input-group" style="flex:1"><label>Fee</label><input type="number" id="staffFee" disabled></div>
+        </div>
+        <button class="btn-update" onclick="generatePayout()" style="width:100%; margin-top:15px; padding:15px;">UPDATE VIEW</button>
+    </div>
+
+    <div id="printArea" class="payout-page">
+        <div class="header-payout">
+            <img id="outLogoImg" src="" style="height:60px;">
+            <h1 id="outEventName"></h1>
+            <h2 id="outTourneyName" style="color:var(--primary-red);"></h2>
+            <p id="outDetails"></p>
+        </div>
+        <table style="width:100%; border-collapse:collapse; margin-top:20px;">
+            <thead><tr style="background:var(--dark); color:white;"><th>RANK</th><th>TICKETS</th></tr></thead>
+            <tbody id="payoutBody"></tbody>
+        </table>
+        <div style="text-align:center; margin-top:20px;" class="no-print"><button onclick="window.print()">🖨️ PRINT</button></div>
+    </div>
+
+    <div id="modalSenha" class="no-print">
+        <div class="modal-content">
+            <h4 style="color:var(--dark); margin-top:0;">Master Access</h4>
+            <p style="font-size:0.8rem; color:#666;">Enter password to unlock Setup</p>
+            <input type="password" id="passUnlock" placeholder="••••" autocomplete="new-password" style="width:100%; padding:12px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; text-align:center; font-size:1.2rem; letter-spacing:4px;">
+            <div style="display:flex; gap:10px;">
+                <button onclick="confirmUnlock()" style="background:var(--green); color:white; flex:1; padding:10px; border-radius:6px;">Confirm</button>
+                <button onclick="document.getElementById('modalSenha').style.display='none'" style="background:var(--primary-red); color:white; flex:1; padding:10px; border-radius:6px;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="reportArea" class="report-page">
+        <div class="report-header">
+            <img id="repLogoImg" src="">
+            <h1 id="repEventNameHeader"></h1>
+            <h2 id="repEventDate">March 27-29, 2026</h2>
+            <h3>FINAL REPORT</h3>
+        </div>
+        <table class="report-table">
+            <thead><tr><th>TOURNAMENT</th><th>DAY / HOUR</th><th>PLAYERS</th><th>ENTRY ($)</th><th>COSTS ($)</th><th>TICKETS</th></tr></thead>
+            <tbody id="reportTableBody"></tbody>
+            <tfoot id="reportFooter"></tfoot>
+        </table>
+        <div style="text-align:center; margin-top:30px;" class="no-print"><button onclick="window.print()" style="background:var(--primary-red); color:white; padding:15px 30px;">🖨️ PRINT FINAL REPORT</button></div>
+    </div>
+
+    <script>
+       const supabaseUrl = 'https://hocpoastnlcwgedvcyqs.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhvY3BvYXN0bmxjd2dlZHZjeXFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyODU0MTYsImV4cCI6MjA4OTg2MTQxNn0.1MvvcFsnGW4e0Bj7mzoUKs_3bGM-eHDJTOqsvgKe-pI';
+        const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
+        
+        let tournamentCatalog = [];
+        let currentEventID = '';
+        let historyData = [];
+
+      async function checkAccess() {
+            const idInput = document.getElementById('event-id-input');
+            const rawId = idInput.value.trim().toUpperCase();
+            if(!rawId) return;
+            
+            const leadRegex = /^[A-Z]{3}\d{4}_LEAD$/;
+            const staffRegex = /^[A-Z]{3}\d+$/; 
+
+            // --- A NOVA LÓGICA: Busca a Âncora Primeiro! ---
+            const syncEventConfig = async (targetID) => {
+                const { data: anchor } = await _supabase.from('tournament_history')
+                    .select('event_name, logo_type')
+                    .eq('event_id', targetID)
+                    .eq('tournament_id', 'IDENTITY_ANCHOR')
+                    .limit(1);
+
+                let finalConfig = null;
+
+                // Se achou a âncora e ela tem nome, é ela que manda!
+                if (anchor && anchor.length > 0 && anchor[0].event_name) {
+                    finalConfig = anchor[0]; 
+                } else {
+                    // Plano B (só pro caso de erro): pega do último torneio
+                    const { data: config } = await _supabase.from('tournament_history')
+                        .select('event_name, logo_type')
+                        .eq('event_id', targetID)
+                        .neq('tournament_id', 'IDENTITY_ANCHOR')
+                        .order('created_at', { ascending: false })
+                        .limit(1);
+                    if (config && config.length > 0) finalConfig = config[0];
+                }
+
+                if (finalConfig) {
+                    document.getElementById('masterEvent').value = finalConfig.event_name || "";
+                    document.getElementById('masterLogo').value = finalConfig.logo_type || "REGIONAL";
+                    document.getElementById('outEventName').innerText = finalConfig.event_name || "";
+                    document.getElementById('repEventNameHeader').innerText = finalConfig.event_name || "";
+                }
+            };
+
+          if (leadRegex.test(rawId)) {
+                currentEventID = rawId;
+                await syncEventConfig(currentEventID);
+                document.querySelector('#catalogTable tbody').innerHTML = "";
+                document.getElementById('reportTableBody').innerHTML = "";
+                document.getElementById('login-area').style.display = 'none';
+                document.getElementById('setupArea').style.display = 'block';
+                await loadTournaments();
+                await loadHistoryFromCloud();
+            } else if (staffRegex.test(rawId)) {
+                const prefix = rawId.substring(0, 3);
+                const suffix = rawId.substring(3);
+                const { data } = await _supabase.from('tournament_catalog')
+                    .select('event_id')
+                    .like('event_id', prefix + '%' + suffix + '_LEAD')
+                    .limit(1);
+                
+                if(data && data.length > 0) {
+                    currentEventID = data[0].event_id;
+                    await syncEventConfig(currentEventID);
+                    document.getElementById('login-area').style.display = 'none';
+                    document.getElementById('staffArea').style.display = 'block';
+                    await loadTournaments();
+                    await loadHistoryFromCloud();
+                } else { alert("ACCESS DENIED: Event not found."); }
+            } else { alert("ACCESS DENIED"); }
+            
+            idInput.value = "";
+        }
+
+        async function loadTournaments() {
+            const { data } = await _supabase.from('tournament_catalog').select('*').eq('event_id', currentEventID);
+            tournamentCatalog = data || [];
+            const select = document.getElementById('staffSelectTourney');
+            const tbody = document.querySelector('#catalogTable tbody');
+            if (select) select.innerHTML = '<option value="">Select Tournament...</option>';
+            if (tbody) tbody.innerHTML = "";
+            tournamentCatalog.forEach((t, i) => {
+                if (select) select.innerHTML += `<option value="${i}">${t.t_hour} - ${t.t_name} (${t.t_day})</option>`;
+                if (tbody) tbody.innerHTML += `<tr><td>${t.t_name} (${t.t_day})</td><td><button onclick="removeT('${t.id}')">❌</button></td></tr>`;
+            });
+        }
+
+        async function saveEventIdentity() {
+            const eventName = document.getElementById('masterEvent').value || "EVENTO PADRAO";
+            const logoType = document.getElementById('masterLogo').value || "REGIONAL";
+            if (!currentEventID) return;
+            
+            const payload = { event_id: currentEventID, tournament_id: 'IDENTITY_ANCHOR', event_name: eventName, logo_type: logoType };
+            
+            const { data: existing } = await _supabase.from('tournament_history')
+                .select('id')
+                .eq('event_id', currentEventID)
+                .eq('tournament_id', 'IDENTITY_ANCHOR');
+
+            if (existing && existing.length > 0) {
+                await _supabase.from('tournament_history').update(payload).eq('id', existing[0].id);
+            } else {
+                await _supabase.from('tournament_history').insert([payload]);
+            }
+        }
+
+        async function addTournament() {
+            await saveEventIdentity(); // Força salvar o nome do evento sempre que criar um torneio!
+            const name = document.getElementById('tName').value.trim();
+            const hour = document.getElementById('tHour').value.trim();
+            const day = document.getElementById('tDay').value;
+            const fee = parseFloat(document.getElementById('tFee').value) || 0;
+            const cost = parseFloat(document.getElementById('tCost').value) || 0;
+            if(!name) return alert("Please enter a Tournament Name");
+            
+            const uniqueID = "t_" + Date.now();
+            const { error } = await _supabase.from('tournament_catalog').insert([{ id: uniqueID, event_id: currentEventID, t_name: name, t_hour: hour, t_day: day, t_fee: fee, t_cost: cost }]);
+            if(!error) { 
+                document.getElementById('tName').value = ""; 
+                document.getElementById('tHour').value = ""; 
+                loadTournaments(); 
+            }
+        }
+
+        async function removeT(id) {
+            if(confirm("Delete this tournament?")) {
+                const { error } = await _supabase.from('tournament_catalog').delete().eq('id', id);
+                if(!error) loadTournaments();
+            }
+        }
+
+        function updateStaffFee() {
+            const val = document.getElementById('staffSelectTourney').value;
+            const t = tournamentCatalog[val];
+            if(t) document.getElementById('staffFee').value = t.t_fee;
+        }
+
+        function getPayoutRank(p) {
+            if (p >= 227) return 128; if (p >= 129) return 64; if (p >= 65) return 32;
+            if (p >= 33) return 16; if (p >= 17) return 8; if (p >= 9) return 4; return 2;
+        }
+        function round10(val) { return Math.round(val / 10) * 10; }
+
+       async function generatePayout() {
+            const selectIndex = document.getElementById('staffSelectTourney').value;
+            const t = tournamentCatalog[selectIndex];
+            if (!t) return alert("Please select a tournament first.");
+            
+            const p = parseInt(document.getElementById('staffPlayers').value) || 0;
+            const factor = parseFloat(document.getElementById('masterFactor').value) || 2.0;
+            const tax = (parseFloat(document.getElementById('masterTax').value) || 0) / 100;
+            if (p < 4) return alert("Minimum 4 players required.");
+            
+            const totalTicketsLimit = Math.max(0, (t.t_fee - t.t_cost) * p * 10);
+            const partIndiv = round10((totalTicketsLimit * tax) / p);
+            const pool = totalTicketsLimit - (partIndiv * p);
+            const payoutRank = getPayoutRank(p);
+            
+            let tiers = [];
+            if (payoutRank >= 1) tiers.push({ name: "1st Place", count: 1 });
+            if (payoutRank >= 2) tiers.push({ name: "2nd Place", count: 1 });
+            if (payoutRank >= 4) tiers.push({ name: "3rd - 4th", count: 2 });
+            if (payoutRank >= 8) tiers.push({ name: "5th - 8th", count: 4 });
+            if (payoutRank >= 16) tiers.push({ name: "9th - 16th", count: 8 });
+            if (payoutRank >= 32) tiers.push({ name: "17th - 32nd", count: 16 });
+            
+            let totalW = 0;
+            tiers.forEach((tier, i) => { tier.weight = Math.pow(factor, (tiers.length - 1) - i); totalW += (tier.weight * tier.count); });
+            const unit = pool / totalW;
+            let currentTotal = (partIndiv * p);
+            const body = document.getElementById('payoutBody'); 
+            body.innerHTML = ""; 
+            
+            const eventName = document.getElementById('masterEvent').value || "EVENTO PADRÃO";
+            const logoType = document.getElementById('masterLogo').value || "REGIONAL";
+            
+            tiers.forEach(tier => {
+                let prize = round10(unit * tier.weight) + partIndiv;
+                body.innerHTML += `<tr><td>${tier.name}</td><td>${prize.toLocaleString()}</td></tr>`;
+                currentTotal += (round10(unit * tier.weight) * tier.count);
+            });
+            body.innerHTML += `<tr style="background:#f9f9f9; font-style:italic"><td>Participation</td><td>${partIndiv.toLocaleString()}</td></tr>`;
+            
+            document.getElementById('outEventName').innerText = eventName;
+            document.getElementById('outTourneyName').innerText = t.t_name;
+            document.getElementById('outLogoImg').src = logoType === "REGIONAL" ? "reg.PNG" : "ic.png";
+            document.getElementById('outDetails').innerText = `Players: ${p} | Fee: $${t.t_fee} | Rounds: ${p >= 33 ? 6 : 4}`;
+            document.getElementById('reportArea').style.display = 'none';
+            document.getElementById('printArea').style.display = 'block';
+            
+            let payload = { 
+                event_id: currentEventID, 
+                tournament_id: t.id, 
+                tournament_name: t.t_name, 
+                schedule: `${t.t_day} - ${t.t_hour}`, 
+                players: p, 
+                entry_fee: t.t_fee, 
+                costs: t.t_cost, 
+                total_tickets: currentTotal,
+                event_name: eventName,
+                logo_type: logoType
+            };
+            
+            
+            const { data: existing } = await _supabase.from('tournament_history')
+                .select('id')
+                .eq('event_id', currentEventID)
+                .eq('tournament_id', t.id);
+
+            let dbError;
+            
+            if (existing && existing.length > 0) {
+                const { error } = await _supabase.from('tournament_history')
+                    .update(payload)
+                    .eq('id', existing[0].id);
+                dbError = error;
+            } else {
+                const { error } = await _supabase.from('tournament_history')
+                    .insert([payload]);
+                dbError = error;
+            }
+
+            if (dbError) {
+                alert("🚨 ERRO DO SUPABASE: " + dbError.message);
+            } else {
+                await loadHistoryFromCloud(); 
+                console.log("✅ Dados salvos com sucesso no Supabase!");
+            }
+        }
+
+        async function lockSetup() { 
+            await saveEventIdentity(); // Salva por precaução antes de trancar
+            document.getElementById('setupArea').style.display = 'none'; 
+            document.getElementById('staffArea').style.display = 'block'; 
+        }
+        
+        function unlockSetup() { 
+            document.getElementById('modalSenha').style.display = 'flex'; 
+            document.getElementById('passUnlock').value = ""; 
+            document.getElementById('passUnlock').focus(); 
+        }
+        
+        function confirmUnlock() { 
+            const pass = document.getElementById('passUnlock').value; 
+            if (pass && pass.toUpperCase() === currentEventID.replace('_LEAD', '')) { 
+                document.getElementById('modalSenha').style.display = 'none'; 
+                document.getElementById('setupArea').style.display = 'block'; 
+                document.getElementById('staffArea').style.display = 'none'; 
+            } else { alert("ACCESS DENIED"); }
+        }
+
+        async function showFinalReport() {
+            document.getElementById('payoutBody').innerHTML = "";
+            document.getElementById('printArea').style.display = 'none';
+            await loadHistoryFromCloud(); // Força a buscar dados novos antes de gerar
+            
+            const eventName = document.getElementById('masterEvent').value || "EVENT REPORT";
+            const logoSrc = document.getElementById('masterLogo').value === "REGIONAL" ? "reg.PNG" : "ic.png";
+            
+            document.getElementById('repEventNameHeader').innerText = eventName;
+            document.getElementById('repLogoImg').src = logoSrc;
+            const tbody = document.getElementById('reportTableBody');
+            tbody.innerHTML = "";
+            
+            let tP = 0, tR = 0, tE = 0, tT = 0;
+            if (historyData.length === 0) {
+                tbody.innerHTML = "<tr><td colspan='6'>NO DATA FOUND</td></tr>";
+            } else {
+                historyData.forEach(h => {
+                    tP += h.players; tR += h.rev; tE += h.exp; tT += h.tickets;
+                    tbody.innerHTML += `<tr><td>${h.name}</td><td>${h.schedule}</td><td>${h.players}</td><td>$${h.rev.toFixed(2)}</td><td>$${h.exp.toFixed(2)}</td><td>${h.tickets.toLocaleString()}</td></tr>`;
+                });
+            }
+            document.getElementById('reportFooter').innerHTML = `<tr class="row-total"><td colspan="2">TOTALS</td><td>${tP}</td><td>$${tR.toFixed(2)}</td><td>$${tE.toFixed(2)}</td><td>${tT.toLocaleString()}</td></tr>`;
+            document.getElementById('reportArea').style.display = 'block';
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
+        async function loadHistoryFromCloud() {
+            const { data } = await _supabase.from('tournament_history').select('*').eq('event_id', currentEventID).neq('tournament_id', 'IDENTITY_ANCHOR');
+            if (data) { historyData = data.map(h => ({ id: h.tournament_id, name: h.tournament_name, schedule: h.schedule, players: h.players, rev: h.players * h.entry_fee, exp: h.players * h.costs, tickets: h.total_tickets })); }
+        }
+        
+        function resetSystem() { 
+            if(confirm("RESET ALL DATA?") && prompt("Type DELETE to confirm") === "DELETE") { 
+                localStorage.clear(); 
+                location.reload(); 
+            } 
+        }
+    </script>
+</body>
+</html>
